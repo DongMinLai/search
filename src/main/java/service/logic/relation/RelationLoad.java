@@ -5,15 +5,23 @@ import exception.LoadRelationException;
 import service.RelationQueryProcess;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
+import org.springframework.util.ObjectUtils;
 
 import java.util.*;
 import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutorService;
 
 @Component
 public class RelationLoad {
 
     @Autowired
     private RelationFactory relationFactory;
+
+    /**
+     * 线程池
+     */
+    @Autowired
+    private ExecutorService executorService;
 
     /**
      * 加载数据关系
@@ -85,17 +93,25 @@ public class RelationLoad {
         Class<?> entity = entityList.get(0).getClass();
         if(relation_str.contains(".")){
             String[] searchFields = relation_str.split("\\.",2);
-            try {
-                List<Object> subEntityList = new ArrayList<>();
-                for (Object group:SearchUtil.getFieldValues(entityList, entity.getDeclaredField(searchFields[0]))
-                     ) {
-                    Collection<?> list = (List<?>) group;
-                    subEntityList.addAll(list);
+            List<Object> subEntityList = new ArrayList<>();
+            for (Object group:SearchUtil.getFieldValues(entityList, SearchUtil.getDeclaredFieldSource(entity, searchFields[0]))
+            ) {
+                if(ObjectUtils.isEmpty(group)){
+                    throw new LoadRelationException(entity.getName()+ "." + searchFields[0] + "关系未定义");
                 }
-                loadAll(subEntityList, searchFields[1]);
-            } catch (NoSuchFieldException e) {
-                throw new LoadRelationException(searchFields[0] + "关系不存在");
+                Collection<?> list = null;
+                if(group instanceof List){
+                    list = (List<?>) group;
+                }else{
+                    list = new ArrayList<Object>(){{
+                        add(group);
+                    }};
+                }
+
+                subEntityList.addAll(list);
             }
+            loadAll(subEntityList, searchFields[1]);
+
         }else{
             Relation relation = relationFactory.create(entity, relation_str);
             relation.loadAll(entityList, relation_str, queryProcess);
@@ -119,27 +135,10 @@ public class RelationLoad {
      */
     public void loadAll(List<?> entityList, String... relation_strs)
     {
-        Map<Integer, List<String>> levelGroup = setLevel(Arrays.stream(relation_strs).iterator());
-        for (Integer level : levelGroup.keySet()) {
-            List<String> re_strs = levelGroup.get(level);
-            CountDownLatch cdl = new CountDownLatch(re_strs.size());
-            for (String relation_str : re_strs
-            ) {
-                Thread t = new Thread(() -> {
-                    try {
-                        loadAll(entityList, relation_str, null);
-                    }finally {
-                        cdl.countDown();
-                    }
-                });
-                t.start();
-            }
-            try {
-                cdl.await();
-            } catch (InterruptedException e) {
-                e.printStackTrace();
-            }
-        }
+        Map<String, RelationQueryProcess> relations = new HashMap<String, RelationQueryProcess>(){{
+            Arrays.stream(relation_strs).forEach(relation->  put(relation,null));
+        }};
+        loadAll(entityList, relations);
     }
 
     /**
@@ -155,14 +154,13 @@ public class RelationLoad {
             CountDownLatch cdl = new CountDownLatch(relation_strs.size());
             for (String relation_str : relation_strs
             ) {
-                Thread t = new Thread(() -> {
+                executorService.execute(() -> {
                     try {
                         loadAll(entityList, relation_str, relations.get(relation_str));
                     }finally {
                         cdl.countDown();
                     }
                 });
-                t.start();
             }
             try {
                 cdl.await();
@@ -188,7 +186,7 @@ public class RelationLoad {
             }
             group.get(level).add(relation);
         }
-         return group;
+        return group;
     }
 
 }

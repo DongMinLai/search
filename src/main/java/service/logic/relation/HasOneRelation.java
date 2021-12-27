@@ -25,9 +25,11 @@ public class HasOneRelation extends AbstractRelation<HasOne, HasOneVo>{
 
     @Override
     void executeMapperQuery(List<?> entityList, RelationQueryProcess relationQueryProcess, String relation) {
-        RelationResultHandler relationResultHandler = new RelationResultHandler(getAnnotation(relation).related(), getAnnotation(relation).foreignKey());
         HasOneVo param = getMapperParam(entityList, relation);
-
+        if(isEmptyValue(param)) {
+            return;
+        }
+        RelationResultHandler relationResultHandler = new RelationResultHandler(getAnnotation(relation).related(), getAnnotation(relation).foreignKey());
         QueryWrapper<?> queryWrapper = new QueryWrapper<>();
         queryWrapper.in(param.getForeignKey(), param.getKeyValue());
         setQueryWrapper(queryWrapper, relationQueryProcess, relation);

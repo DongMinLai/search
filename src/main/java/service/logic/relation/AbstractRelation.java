@@ -189,6 +189,11 @@ public abstract class AbstractRelation<T, R extends RelationVo> implements Relat
         return sql;
     }
 
+    protected boolean isEmptyValue(RelationVo relationVo)
+    {
+        return (relationVo.getKeyValue() == null || relationVo.getKeyValue().size() == 0);
+    }
+
     /**
      * 构建参数
      * @param entityList

@@ -24,8 +24,10 @@ public class BelongToManyRelation extends AbstractRelation<BelongsToMany, Belong
     @Override
     void executeMapperQuery(List<?> entityList, RelationQueryProcess relationQueryProcess, String relation) {
         BelongToManyVo param = getMapperParam(entityList, relation);
+        if(isEmptyValue(param)) {
+            return;
+        }
         RelationResultHandler relationResultHandler = new RelationResultHandler(getAnnotation(relation).related(), param.getForeignPivotKey());
-
         QueryWrapper<?> queryWrapper = new QueryWrapper<>();
         queryWrapper.in(param.getForeignPivotKey(), param.getKeyValue());
         setQueryWrapper(queryWrapper, relationQueryProcess, relation);

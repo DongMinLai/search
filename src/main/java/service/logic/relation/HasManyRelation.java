@@ -23,10 +23,12 @@ public class HasManyRelation extends AbstractRelation<HasMany, HasManyVo>{
 
     @Override
     void executeMapperQuery(List<?> entityList, RelationQueryProcess relationQueryProcess, String relation) {
+        HasManyVo param = getMapperParam(entityList, relation);
+        if(isEmptyValue(param)) {
+            return;
+        }
         RelationResultHandler relationResultHandler = new RelationResultHandler(
                 getAnnotation(relation).related(), getAnnotation(relation).foreignKey());
-        HasManyVo param = getMapperParam(entityList, relation);
-
         QueryWrapper<?> queryWrapper = new QueryWrapper<>();
         queryWrapper.in(param.getForeignKey(), param.getKeyValue());
         setQueryWrapper(queryWrapper, relationQueryProcess, relation);
